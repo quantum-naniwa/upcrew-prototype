@@ -11,14 +11,17 @@
 ログイン / スリープ復帰
         ↓
    daemon.py（常駐）
+   ├── HTTPサーバー起動（port 8765）
+   └── recorder.py を起動
         ↓
-   recorder.py（録画）
-    ├── 成功 → ~/Movies/recordings/ に保存 + ログ記録
-    └── 失敗 → Zapier Webhook → Slack 通知
-                                    ↓
-                          再実行リンクをクリック
-                                    ↓
-                            rerun.py（再実行）
+   recorder.py（30秒録画）
+    ├── 本日分が既にある → スキップ終了
+    ├── 成功 → ~/Movies/recordings/ に保存 + logs/log.jsonl に記録
+    └── 失敗 → Zapier Webhook → Slack通知（再実行リンク付き）
+                                        ↓
+                              http://localhost:8765/rerun をクリック
+                                        ↓
+                                rerun.py（本日分削除 → 再録画）
 ```
 
 ---
@@ -63,7 +66,7 @@ pip install -r requirements.txt
 cp config.example.json config.json
 ```
 
-`config.json` を開き、Zapier の Webhook URL を設定してください：
+`config.json` を開き、Zapier の Webhook URL を設定：
 
 ```json
 {
@@ -81,26 +84,131 @@ cp config.example.json config.json
 python3 setup_autostart.py
 ```
 
-成功すると以下が表示されます：
+以下が表示されれば完了です：
 
 ```
 [SUCCESS] LaunchAgent を登録しました。次回ログイン時から自動起動されます。
 ```
 
-**これで設定完了です。次回ログイン時から自動録画が始まります。**
+**次回ログイン時から自動録画が始まります。**
 
 ---
 
-## 動作確認（任意）
+## テスト手順
 
-セットアップ後、手動でテストする場合：
+セットアップ後、以下の順番で動作を確認してください。
+
+---
+
+### STEP 1 — デーモンを起動
 
 ```bash
-# 録画テスト（30秒録画して保存）
-python3 recorder.py
+launchctl start com.autostart.recorder
+```
 
-# 強制再実行（本日分を削除して再録画）
+### STEP 2 — デーモンの起動確認
+
+```bash
+tail -f ~/Documents/cursor-1/python-autostart-app/logs/daemon.log
+```
+
+以下が表示されれば正常です：
+
+```
+[daemon HH:MM:SS] 再実行サーバー起動: http://localhost:8765/rerun
+[daemon HH:MM:SS] デーモン起動（ログイン検知）
+[daemon HH:MM:SS] recorder.py を起動します
+[INFO] recorder.py 起動: YYYY-MM-DDTHH:MM:SS
+[INFO] 録画開始 (30秒): ~/Movies/recordings/recording-YYYY-MM-DD_HH-MM-SS.mp4
+[SUCCESS] 録画完了: XXXXフレーム / XX,XXXバイト
+```
+
+`Ctrl+C` でログ監視を終了します。
+
+---
+
+### STEP 3 — 成功パスのテスト（録画 → 保存）
+
+本日分の録画を削除して再録画します：
+
+```bash
 python3 rerun.py
+```
+
+以下が表示されれば成功です：
+
+```
+[INFO] 本日分の録画 1 件を削除しました。
+[INFO] recorder.py を起動します...
+[SUCCESS] 録画完了: 900フレーム / XX,XXXバイト
+```
+
+録画ファイルの確認：
+
+```bash
+open ~/Movies/recordings/
+```
+
+---
+
+### STEP 4 — 失敗パスのテスト（Zapier → Slack通知）
+
+録画失敗を意図的に発生させて Slack 通知を確認します：
+
+```bash
+python3 -c "
+import sys
+sys.path.insert(0, '.')
+import recorder
+recorder.notify_zapier('カメラを起動できませんでした（テスト）')
+print('通知送信完了')
+"
+```
+
+Slack の通知チャンネルに以下のようなメッセージが届きます：
+
+```
+⚠️ 録画失敗アラート
+
+PC名: your-mac
+日時: YYYY-MM-DDTHH:MM:SS
+エラー: カメラを起動できませんでした（テスト）
+
+▶️ 再実行はこちら（ご自身のPCのブラウザで開いてください）
+http://localhost:8765/rerun
+```
+
+---
+
+### STEP 5 — 再実行リンクのテスト
+
+STEP 4 で届いた Slack 通知の `http://localhost:8765/rerun` を  
+**ご自身の PC のブラウザで開いてください。**
+
+ブラウザに「✅ 再実行を開始しました」と表示されれば成功です。
+
+ログで確認：
+
+```bash
+tail -5 ~/Documents/cursor-1/python-autostart-app/logs/daemon.log
+```
+
+```
+[daemon HH:MM:SS] rerun.py を起動します（再実行リクエスト）
+```
+
+---
+
+### STEP 6 — ログの確認
+
+```bash
+cat ~/Documents/cursor-1/python-autostart-app/logs/log.jsonl
+```
+
+録画結果が JSON 形式で記録されています：
+
+```json
+{"timestamp": "2026-04-14T14:52:00", "success": true, "message": "録画完了: 900フレーム", "filepath": "~/Movies/recordings/recording-2026-04-14_14-52-00.mp4", "platform": "Darwin", "hostname": "your-mac"}
 ```
 
 ---
@@ -109,12 +217,14 @@ python3 rerun.py
 
 | ファイル | 説明 |
 |---------|------|
-| `recorder.py` | カメラ録画・エラー処理・Slack通知 |
-| `daemon.py` | 常駐プロセス（ログイン検知・スリープ復帰検知・再実行サーバー） |
+| `recorder.py` | カメラ録画・エラー処理・Zapier通知 |
+| `daemon.py` | 常駐プロセス（ログイン検知・スリープ復帰検知・再実行HTTPサーバー） |
 | `setup_autostart.py` | 自動起動の登録・解除 |
-| `rerun.py` | 強制再実行 |
-| `config.json` | 設定ファイル（各端末で個別に作成） |
+| `rerun.py` | 強制再実行（本日分削除→再録画） |
+| `config.json` | 設定ファイル（各端末で個別に作成・gitignore対象） |
 | `config.example.json` | 設定ファイルのテンプレート |
+| `logs/log.jsonl` | 録画実行結果ログ |
+| `logs/daemon.log` | デーモン動作ログ |
 
 ---
 
@@ -127,16 +237,10 @@ python3 rerun.py
 
 ファイル名: `recording-YYYY-MM-DD_HH-MM-SS.mp4`
 
----
-
-## ログの確認
+Finder から開く：
 
 ```bash
-# 実行結果ログ
-cat logs/log.jsonl
-
-# デーモンログ
-cat logs/daemon.log
+open ~/Movies/recordings/
 ```
 
 ---
@@ -155,5 +259,6 @@ python3 setup_autostart.py uninstall
 |------|------|
 | カメラが起動しない | システム環境設定 > プライバシー > カメラ で Python を許可 |
 | Slack 通知が届かない | `config.json` の `zapier_webhook_url` を確認 |
-| 録画がスキップされる | 本日分が既に存在します（正常動作） |
-| 再実行したい | `python3 rerun.py` を実行 |
+| 録画がスキップされる | 本日分が既に存在（正常動作）。再実行は `python3 rerun.py` |
+| 再実行リンクが開かない | `launchctl start com.autostart.recorder` でデーモンを起動 |
+| SSL エラーが出る | 社内ネットワークのプロキシが原因。SE に確認 |
