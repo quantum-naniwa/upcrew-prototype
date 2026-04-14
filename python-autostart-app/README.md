@@ -151,7 +151,7 @@ launchctl stop com.autostart.recorder
 
 3. ログイン後、ターミナルを開いてログを確認
 ```bash
-tail -20 ~/Documents/cursor-1/python-autostart-app/logs/daemon.log
+tail -20 logs/daemon.log
 ```
 
 ログイン直後に録画が自動実行されていれば成功です：
@@ -184,7 +184,7 @@ python3 rerun.py
 
 3. スリープ復帰後（画面ロックがある場合はログイン）、ログを確認
 ```bash
-tail -10 ~/Documents/cursor-1/python-autostart-app/logs/daemon.log
+tail -10 logs/daemon.log
 ```
 
 以下が表示されれば復帰検知が動作しています：
@@ -206,7 +206,7 @@ launchctl start com.autostart.recorder
 ### STEP 5 — デーモンの起動確認
 
 ```bash
-tail -f ~/Documents/cursor-1/python-autostart-app/logs/daemon.log
+tail -f logs/daemon.log
 ```
 
 以下が表示されれば正常です：
@@ -287,7 +287,7 @@ STEP 7 で届いた Slack 通知の `http://localhost:8765/rerun` を
 ログで確認：
 
 ```bash
-tail -5 ~/Documents/cursor-1/python-autostart-app/logs/daemon.log
+tail -5 logs/daemon.log
 ```
 
 ```
@@ -299,7 +299,7 @@ tail -5 ~/Documents/cursor-1/python-autostart-app/logs/daemon.log
 ### STEP 9 — ログの確認
 
 ```bash
-cat ~/Documents/cursor-1/python-autostart-app/logs/log.jsonl
+cat logs/log.jsonl
 ```
 
 録画結果が JSON 形式で記録されています：
