@@ -166,9 +166,23 @@ tail -20 ~/Documents/cursor-1/python-autostart-app/logs/daemon.log
 
 ### STEP 3 — スリープ復帰の自動起動確認
 
-1. Mac をスリープ（Apple メニュー → スリープ）
+スリープからの復帰は以下の2パターンどちらも自動で動作します：
 
-2. スリープ復帰後、ログを確認
+| パターン | 動作 |
+|---------|------|
+| スリープ → 復帰（画面ロックなし） | daemon.py が時間ギャップを検知して録画 |
+| スリープ → 復帰 → ログイン（画面ロック解除） | daemon.py は KeepAlive で常駐しているため、画面ロック解除前に復帰を検知して録画 |
+
+**テスト手順：**
+
+1. 本日分の録画を削除（スキップされないよう）
+```bash
+python3 rerun.py
+```
+
+2. Mac をスリープ（Apple メニュー → スリープ）
+
+3. スリープ復帰後（画面ロックがある場合はログイン）、ログを確認
 ```bash
 tail -10 ~/Documents/cursor-1/python-autostart-app/logs/daemon.log
 ```
@@ -178,11 +192,8 @@ tail -10 ~/Documents/cursor-1/python-autostart-app/logs/daemon.log
 ```
 [daemon HH:MM:SS] スリープ復帰を検知しました（XX秒のギャップ）
 [daemon HH:MM:SS] recorder.py を起動します
-[INFO] 本日分の録画が既に存在します。スキップして終了します。
+[SUCCESS] 録画完了: 900フレーム / XX,XXXバイト
 ```
-
-> 本日分が既にある場合はスキップされます（正常動作）。  
-> スキップを確認したい場合は先に `python3 rerun.py` で本日分を削除してからスリープしてください。
 
 ---
 
