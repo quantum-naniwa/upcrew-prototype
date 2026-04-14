@@ -1,0 +1,20 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Node
+node_modules/
+
+# 機密情報（Webhook URL等を含むため除外）
+python-autostart-app/config.json
+
+# ローカル生成ファイル
+python-autostart-app/logs/
+python-autostart-app/recordings/
+
+# Excel
+*.xlsx
