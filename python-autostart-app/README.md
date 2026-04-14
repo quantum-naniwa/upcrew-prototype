@@ -100,13 +100,83 @@ python3 setup_autostart.py
 
 ---
 
-### STEP 1 — デーモンを起動
+### STEP 1 — 自動起動の登録確認
+
+LaunchAgent が正しく登録されているか確認します：
+
+```bash
+launchctl list | grep com.autostart.recorder
+```
+
+以下のように PID が表示されれば登録済みです：
+
+```
+12345   0   com.autostart.recorder
+```
+
+plist ファイルの存在も確認できます：
+
+```bash
+cat ~/Library/LaunchAgents/com.autostart.recorder.plist
+```
+
+---
+
+### STEP 2 — ログイン時の自動起動確認
+
+実際にログアウト → ログインして自動起動を確認します：
+
+1. ターミナルで以下を実行してデーモンを停止
+```bash
+launchctl stop com.autostart.recorder
+```
+
+2. Mac をログアウト（Apple メニュー → ログアウト）
+
+3. ログイン後、ターミナルを開いてログを確認
+```bash
+tail -20 ~/Documents/cursor-1/python-autostart-app/logs/daemon.log
+```
+
+ログイン直後に録画が自動実行されていれば成功です：
+
+```
+[daemon HH:MM:SS] デーモン起動（ログイン検知）
+[daemon HH:MM:SS] recorder.py を起動します
+[SUCCESS] 録画完了: 900フレーム / XX,XXXバイト
+```
+
+---
+
+### STEP 3 — スリープ復帰の自動起動確認
+
+1. Mac をスリープ（Apple メニュー → スリープ）
+
+2. スリープ復帰後、ログを確認
+```bash
+tail -10 ~/Documents/cursor-1/python-autostart-app/logs/daemon.log
+```
+
+以下が表示されれば復帰検知が動作しています：
+
+```
+[daemon HH:MM:SS] スリープ復帰を検知しました（XX秒のギャップ）
+[daemon HH:MM:SS] recorder.py を起動します
+[INFO] 本日分の録画が既に存在します。スキップして終了します。
+```
+
+> 本日分が既にある場合はスキップされます（正常動作）。  
+> スキップを確認したい場合は先に `python3 rerun.py` で本日分を削除してからスリープしてください。
+
+---
+
+### STEP 4 — デーモンを手動起動
 
 ```bash
 launchctl start com.autostart.recorder
 ```
 
-### STEP 2 — デーモンの起動確認
+### STEP 5 — デーモンの起動確認
 
 ```bash
 tail -f ~/Documents/cursor-1/python-autostart-app/logs/daemon.log
@@ -127,7 +197,7 @@ tail -f ~/Documents/cursor-1/python-autostart-app/logs/daemon.log
 
 ---
 
-### STEP 3 — 成功パスのテスト（録画 → 保存）
+### STEP 6 — 成功パスのテスト（録画 → 保存）
 
 本日分の録画を削除して再録画します：
 
@@ -151,7 +221,7 @@ open ~/Movies/recordings/
 
 ---
 
-### STEP 4 — 失敗パスのテスト（Zapier → Slack通知）
+### STEP 7 — 失敗パスのテスト（Zapier → Slack通知）
 
 録画失敗を意図的に発生させて Slack 通知を確認します：
 
@@ -180,9 +250,9 @@ http://localhost:8765/rerun
 
 ---
 
-### STEP 5 — 再実行リンクのテスト
+### STEP 8 — 再実行リンクのテスト
 
-STEP 4 で届いた Slack 通知の `http://localhost:8765/rerun` を  
+STEP 7 で届いた Slack 通知の `http://localhost:8765/rerun` を  
 **ご自身の PC のブラウザで開いてください。**
 
 ブラウザに「✅ 再実行を開始しました」と表示されれば成功です。
@@ -199,7 +269,7 @@ tail -5 ~/Documents/cursor-1/python-autostart-app/logs/daemon.log
 
 ---
 
-### STEP 6 — ログの確認
+### STEP 9 — ログの確認
 
 ```bash
 cat ~/Documents/cursor-1/python-autostart-app/logs/log.jsonl
