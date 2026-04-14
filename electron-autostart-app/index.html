@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>今日のタスク</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      background: transparent;
+      -webkit-app-region: drag;
+      user-select: none;
+    }
+
+    .card {
+      background: linear-gradient(135deg, #0d2b1a 0%, #0a3320 50%, #093d22 100%);
+      border-radius: 16px;
+      padding: 20px;
+      width: 380px;
+      height: 580px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* ヘッダー */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .date-info { display: flex; flex-direction: column; gap: 2px; }
+    .date { color: #a8b8d8; font-size: 13px; letter-spacing: 0.05em; }
+    .day-of-week { color: #4a9eff; font-size: 12px; }
+    .btn-group { display: flex; gap: 6px; align-items: center; -webkit-app-region: no-drag; }
+    .close-btn, .minimize-btn {
+      background: rgba(255,255,255,0.1);
+      border: none; color: #a8b8d8;
+      width: 24px; height: 24px;
+      border-radius: 50%; cursor: pointer;
+      font-size: 14px; display: flex;
+      align-items: center; justify-content: center;
+      transition: background 0.2s;
+    }
+    .close-btn:hover, .minimize-btn:hover { background: rgba(255,255,255,0.2); }
+
+    /* 時刻 */
+    .time {
+      color: #ffffff; font-size: 44px; font-weight: 200;
+      letter-spacing: 0.02em; line-height: 1; text-align: center;
+    }
+
+    /* タスク入力エリア */
+    .task-section {
+      display: flex; flex-direction: column;
+      gap: 8px; flex: 1; min-height: 0;
+    }
+    .task-input-area {
+      -webkit-app-region: no-drag;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .task-textarea {
+      width: 100%;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 8px;
+      color: #ffffff; font-size: 13px;
+      padding: 8px 10px;
+      outline: none;
+      resize: none;
+      line-height: 1.5;
+      font-family: inherit;
+      min-height: 52px;
+      max-height: 90px;
+      overflow-y: auto;
+      transition: border-color 0.2s;
+    }
+    .task-textarea::placeholder { color: rgba(255,255,255,0.3); }
+    .task-textarea:focus { border-color: #4a9eff; }
+
+    .input-bottom {
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .priority-select { display: flex; gap: 4px; }
+    .pri-btn {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 6px; color: rgba(255,255,255,0.5);
+      font-size: 12px; padding: 3px 10px;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .pri-btn.active-high  { background: rgba(255,80,80,0.25);  border-color: #ff5050; color: #ff8080; }
+    .pri-btn.active-mid   { background: rgba(255,190,50,0.2);  border-color: #ffbe32; color: #ffd060; }
+    .pri-btn.active-low   { background: rgba(80,200,120,0.2);  border-color: #50c878; color: #70e090; }
+    .add-btn {
+      background: #4a9eff; border: none; border-radius: 8px;
+      color: #fff; font-size: 20px;
+      width: 32px; height: 32px;
+      cursor: pointer; display: flex;
+      align-items: center; justify-content: center;
+      transition: background 0.2s; flex-shrink: 0;
+    }
+    .add-btn:hover { background: #3a8eef; }
+
+    /* タスクリスト */
+    .task-list {
+      flex: 1; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 5px;
+      -webkit-app-region: no-drag;
+    }
+    .task-list::-webkit-scrollbar { width: 4px; }
+    .task-list::-webkit-scrollbar-track { background: transparent; }
+    .task-list::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.15); border-radius: 2px;
+    }
+
+    .task-item {
+      display: flex; align-items: flex-start; gap: 7px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 8px; padding: 8px 8px;
+      transition: background 0.15s, opacity 0.15s;
+      cursor: default;
+    }
+    .task-item:hover { background: rgba(255,255,255,0.09); }
+    .task-item.drag-over { background: rgba(74,158,255,0.2); }
+    .task-item.dragging { opacity: 0.4; }
+
+    .drag-handle {
+      color: rgba(255,255,255,0.2); font-size: 14px;
+      cursor: grab; flex-shrink: 0; padding-top: 1px;
+      line-height: 1;
+    }
+    .drag-handle:active { cursor: grabbing; }
+
+    .task-check {
+      width: 16px; height: 16px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.3);
+      cursor: pointer; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color 0.2s, background 0.2s;
+      margin-top: 1px;
+    }
+    .task-check.done { border-color: #4a9eff; background: #4a9eff; }
+    .task-check.done::after { content: '✓'; color: #fff; font-size: 9px; }
+
+    .task-body { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+
+    .task-top { display: flex; align-items: center; gap: 5px; }
+    .pri-badge {
+      font-size: 10px; padding: 1px 6px; border-radius: 4px;
+      font-weight: 600; flex-shrink: 0;
+    }
+    .pri-badge.high { background: rgba(255,80,80,0.25); color: #ff8080; }
+    .pri-badge.mid  { background: rgba(255,190,50,0.2); color: #ffd060; }
+    .pri-badge.low  { background: rgba(80,200,120,0.2); color: #70e090; }
+
+    .task-text {
+      color: #d0ddf0; font-size: 13px; line-height: 1.45;
+      word-break: break-all; white-space: pre-wrap;
+    }
+    .task-text.done { color: rgba(255,255,255,0.3); text-decoration: line-through; }
+
+    .delete-btn {
+      background: none; border: none;
+      color: rgba(255,255,255,0.2);
+      cursor: pointer; font-size: 13px;
+      padding: 0 2px; flex-shrink: 0;
+      transition: color 0.2s; margin-top: 1px;
+    }
+    .delete-btn:hover { color: #ff6b6b; }
+
+    .empty-msg {
+      color: rgba(255,255,255,0.2); font-size: 12px;
+      text-align: center; padding: 14px 0;
+    }
+
+    /* カメラ写真 */
+    .photo-section {
+      overflow: hidden;
+      max-height: 0;
+      transition: max-height 0.3s ease;
+    }
+    .photo-section.visible {
+      max-height: 160px;
+    }
+    .camera-video {
+      width: 100%;
+      height: 120px;
+      object-fit: cover;
+      border-radius: 8px;
+      display: block;
+      background: #000;
+    }
+    .photo-placeholder {
+      width: 100%;
+      height: 120px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.05);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255,255,255,0.2);
+      font-size: 12px;
+    }
+    .camera-toggle-btn {
+      background: none; border: none;
+      color: rgba(255,255,255,0.35);
+      cursor: pointer; font-size: 16px;
+      padding: 0;
+      -webkit-app-region: no-drag;
+      transition: color 0.2s;
+    }
+    .camera-toggle-btn:hover { color: rgba(255,255,255,0.7); }
+
+    /* 録画コントロール */
+    .record-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+      -webkit-app-region: no-drag;
+    }
+    .record-btn {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 20px;
+      color: #fff;
+      font-size: 11px;
+      padding: 4px 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: background 0.2s;
+    }
+    .record-btn:hover { background: rgba(255,255,255,0.15); }
+    .record-btn.recording {
+      border-color: #ff4444;
+      background: rgba(255,68,68,0.15);
+    }
+    .record-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #ff4444;
+      flex-shrink: 0;
+    }
+    .record-dot.blink {
+      animation: blink 1s infinite;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.2; }
+    }
+    .record-timer {
+      color: rgba(255,255,255,0.5);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <div class="date-info">
+        <span class="date" id="date">読み込み中...</span>
+        <span class="day-of-week" id="dayofweek"></span>
+      </div>
+      <div class="btn-group">
+        <button class="camera-toggle-btn" id="cameraToggleBtn" onclick="togglePhoto()" title="写真を表示/非表示">📷</button>
+        <button class="minimize-btn" onclick="minimizeWindow()">−</button>
+        <button class="close-btn" onclick="closeWindow()">✕</button>
+      </div>
+    </div>
+
+    <div class="time" id="time">--:--</div>
+
+    <div class="photo-section" id="photoSection">
+      <div class="photo-placeholder" id="photoPlaceholder">カメラを起動中...</div>
+      <video class="camera-video" id="cameraVideo" autoplay muted playsinline style="display:none"></video>
+      <div class="record-bar" id="recordBar" style="display:none">
+        <button class="record-btn" id="recordBtn" onclick="toggleRecording()">
+          <div class="record-dot" id="recordDot"></div>
+          <span id="recordLabel">録画</span>
+        </button>
+        <span class="record-timer" id="recordTimer"></span>
+      </div>
+    </div>
+
+    <div class="task-section">
+      <div class="task-input-area">
+        <textarea class="task-textarea" id="taskInput" placeholder="タスクを追加..." rows="2"></textarea>
+        <div class="input-bottom">
+          <div class="priority-select" id="prioritySelect">
+            <button class="pri-btn active-high" data-val="高" onclick="selectPriority(this)">高</button>
+            <button class="pri-btn" data-val="中" onclick="selectPriority(this)">中</button>
+            <button class="pri-btn" data-val="低" onclick="selectPriority(this)">低</button>
+          </div>
+          <button class="add-btn" onclick="addTask()">+</button>
+        </div>
+      </div>
+      <div class="task-list" id="taskList"></div>
+    </div>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron')
+
+    const days = ['日曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日']
+    let tasks = []
+    let selectedPriority = '高'
+    let dragSrcIndex = null
+
+    function updateClock() {
+      const now = new Date()
+      const h = String(now.getHours()).padStart(2, '0')
+      const m = String(now.getMinutes()).padStart(2, '0')
+      document.getElementById('time').textContent = `${h}:${m}`
+      const year = now.getFullYear()
+      const month = now.getMonth() + 1
+      const day = now.getDate()
+      document.getElementById('date').textContent = `${year}年${month}月${day}日`
+      document.getElementById('dayofweek').textContent = days[now.getDay()]
+    }
+
+    function selectPriority(btn) {
+      selectedPriority = btn.dataset.val
+      document.querySelectorAll('.pri-btn').forEach(b => {
+        b.className = 'pri-btn'
+      })
+      const cls = selectedPriority === '高' ? 'active-high'
+                : selectedPriority === '中' ? 'active-mid' : 'active-low'
+      btn.classList.add(cls)
+    }
+
+    function priClass(p) {
+      return p === '高' ? 'high' : p === '中' ? 'mid' : 'low'
+    }
+
+    function renderTasks() {
+      const list = document.getElementById('taskList')
+      list.innerHTML = ''
+      if (tasks.length === 0) {
+        list.innerHTML = '<div class="empty-msg">タスクはありません</div>'
+        return
+      }
+      tasks.forEach((task, i) => {
+        const item = document.createElement('div')
+        item.className = 'task-item'
+        item.draggable = true
+        item.dataset.index = i
+
+        item.innerHTML = `
+          <div class="drag-handle" title="ドラッグして並び替え">⠿</div>
+          <div class="task-check ${task.done ? 'done' : ''}" onclick="toggleTask(${i})"></div>
+          <div class="task-body">
+            <div class="task-top">
+              <span class="pri-badge ${priClass(task.priority)}">${task.priority}</span>
+            </div>
+            <span class="task-text ${task.done ? 'done' : ''}">${escapeHtml(task.text)}</span>
+          </div>
+          <button class="delete-btn" onclick="deleteTask(${i})">✕</button>
+        `
+
+        // ドラッグ&ドロップ
+        item.addEventListener('dragstart', (e) => {
+          dragSrcIndex = i
+          setTimeout(() => item.classList.add('dragging'), 0)
+          e.dataTransfer.effectAllowed = 'move'
+        })
+        item.addEventListener('dragend', () => {
+          item.classList.remove('dragging')
+          document.querySelectorAll('.task-item').forEach(el => el.classList.remove('drag-over'))
+        })
+        item.addEventListener('dragover', (e) => {
+          e.preventDefault()
+          e.dataTransfer.dropEffect = 'move'
+          document.querySelectorAll('.task-item').forEach(el => el.classList.remove('drag-over'))
+          item.classList.add('drag-over')
+        })
+        item.addEventListener('drop', (e) => {
+          e.preventDefault()
+          const targetIndex = parseInt(item.dataset.index)
+          if (dragSrcIndex !== null && dragSrcIndex !== targetIndex) {
+            const moved = tasks.splice(dragSrcIndex, 1)[0]
+            tasks.splice(targetIndex, 0, moved)
+            dragSrcIndex = null
+            saveTasks()
+            renderTasks()
+          }
+        })
+
+        list.appendChild(item)
+      })
+    }
+
+    function escapeHtml(str) {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+    }
+
+    function addTask() {
+      const input = document.getElementById('taskInput')
+      const text = input.value.trim()
+      if (!text) return
+      tasks.push({ text, done: false, priority: selectedPriority })
+      input.value = ''
+      saveTasks()
+      renderTasks()
+    }
+
+    function toggleTask(i) {
+      tasks[i].done = !tasks[i].done
+      saveTasks()
+      renderTasks()
+    }
+
+    function deleteTask(i) {
+      tasks.splice(i, 1)
+      saveTasks()
+      renderTasks()
+    }
+
+    function saveTasks() {
+      ipcRenderer.send('save-tasks', tasks)
+    }
+
+    document.getElementById('taskInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.metaKey) addTask()
+    })
+
+    // カメラ映像表示
+    let photoVisible = false
+    let cameraStream = null
+
+    async function startCamera() {
+      const section = document.getElementById('photoSection')
+      const placeholder = document.getElementById('photoPlaceholder')
+      const video = document.getElementById('cameraVideo')
+
+      placeholder.style.display = 'flex'
+      video.style.display = 'none'
+      section.classList.add('visible')
+      photoVisible = true
+
+      // 既存のストリームを停止
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(t => t.stop())
+        cameraStream = null
+      }
+
+      try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({ video: true })
+        video.srcObject = cameraStream
+        video.style.display = 'block'
+        placeholder.style.display = 'none'
+        video.play().catch(() => {})
+        document.getElementById('recordBar').style.display = 'flex'
+      } catch (e) {
+        const msg = e ? `${e.name}: ${e.message}` : '不明なエラー'
+        placeholder.textContent = `エラー: ${msg}`
+        console.error('Camera error:', e)
+      }
+    }
+
+    function togglePhoto() {
+      const section = document.getElementById('photoSection')
+      const video = document.getElementById('cameraVideo')
+      photoVisible = !photoVisible
+      section.classList.toggle('visible', photoVisible)
+
+      if (!photoVisible && cameraStream) {
+        // 録画中なら停止
+        if (mediaRecorder && mediaRecorder.state === 'recording') stopRecording()
+        // カメラを停止
+        cameraStream.getTracks().forEach(t => t.stop())
+        cameraStream = null
+        video.srcObject = null
+        document.getElementById('recordBar').style.display = 'none'
+      } else if (photoVisible) {
+        // 再表示時はカメラを再起動
+        startCamera()
+      }
+    }
+
+    // スリープ復帰時にカメラ再起動
+    ipcRenderer.on('take-photo', startCamera)
+
+    // 録画
+    let mediaRecorder = null
+    let recordedChunks = []
+    let recordTimerInterval = null
+    let recordSeconds = 0
+
+    function toggleRecording() {
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        stopRecording()
+      } else {
+        startRecording()
+      }
+    }
+
+    function startRecording() {
+      if (!cameraStream) return
+      recordedChunks = []
+      recordSeconds = 0
+      mediaRecorder = new MediaRecorder(cameraStream, { mimeType: 'video/webm' })
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunks.push(e.data)
+      }
+      mediaRecorder.onstop = saveRecording
+      mediaRecorder.start()
+
+      document.getElementById('recordBtn').classList.add('recording')
+      document.getElementById('recordDot').classList.add('blink')
+      document.getElementById('recordLabel').textContent = '停止'
+      recordTimerInterval = setInterval(() => {
+        recordSeconds++
+        const m = String(Math.floor(recordSeconds / 60)).padStart(2, '0')
+        const s = String(recordSeconds % 60).padStart(2, '0')
+        document.getElementById('recordTimer').textContent = `${m}:${s}`
+      }, 1000)
+    }
+
+    function stopRecording() {
+      if (mediaRecorder) mediaRecorder.stop()
+      clearInterval(recordTimerInterval)
+      document.getElementById('recordBtn').classList.remove('recording')
+      document.getElementById('recordDot').classList.remove('blink')
+      document.getElementById('recordLabel').textContent = '録画'
+      document.getElementById('recordTimer').textContent = '保存中...'
+    }
+
+    async function saveRecording() {
+      const blob = new Blob(recordedChunks, { type: 'video/webm' })
+      const arrayBuffer = await blob.arrayBuffer()
+      ipcRenderer.send('save-recording', Buffer.from(arrayBuffer))
+      document.getElementById('recordTimer').textContent = '保存完了'
+      setTimeout(() => {
+        document.getElementById('recordTimer').textContent = ''
+      }, 2000)
+    }
+
+    function minimizeWindow() { ipcRenderer.send('minimize-window') }
+    function closeWindow() { ipcRenderer.send('close-window') }
+
+    async function init() {
+      tasks = await ipcRenderer.invoke('get-tasks')
+      renderTasks()
+      updateClock()
+      setInterval(updateClock, 1000)
+      startCamera()
+    }
+
+    init()
+  </script>
+</body>
+</html>
