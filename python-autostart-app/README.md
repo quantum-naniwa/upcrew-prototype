@@ -66,7 +66,25 @@ pip install -r requirements.txt
 cp config.example.json config.json
 ```
 
-`config.json` を開き、Zapier の Webhook URL を設定：
+次に `config.json` を開いて Zapier の Webhook URL を設定します。以下のいずれかの方法で開いてください：
+
+**方法① Finder / テキストエディットで開く（推奨）**
+```bash
+open python-autostart-app/config.json
+```
+
+**方法② ターミナル内で編集（nano）**
+```bash
+nano python-autostart-app/config.json
+# 編集後: Ctrl+O で保存 → Ctrl+X で終了
+```
+
+**方法③ VS Code で開く**
+```bash
+code python-autostart-app/config.json
+```
+
+開いたら `zapier_webhook_url` の値を SE 担当者から受け取った URL に書き換えて保存してください：
 
 ```json
 {
@@ -75,8 +93,6 @@ cp config.example.json config.json
   "slack_rerun_url": "http://localhost:8765/rerun"
 }
 ```
-
-> `zapier_webhook_url` は SE 担当者に確認してください。
 
 ### 4. 自動起動を登録
 
