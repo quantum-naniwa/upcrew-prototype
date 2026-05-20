@@ -1,0 +1,12 @@
+{
+  "name": "electron-autostart-app",
+  "version": "1.0.0",
+  "description": "PC起動時に小さなウィンドウを表示するアプリ",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^34.0.0"
+  }
+}
