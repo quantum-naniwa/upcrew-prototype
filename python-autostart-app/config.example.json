@@ -1,0 +1,5 @@
+{
+  "zapier_webhook_url": "https://hooks.zapier.com/hooks/catch/YOUR_HOOK_ID/YOUR_HOOK_KEY/",
+  "record_duration": 30,
+  "slack_rerun_url": "http://localhost:8765/rerun"
+}
